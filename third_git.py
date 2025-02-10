@@ -67,7 +67,6 @@ def process_csv():
                     df.loc[idx-1,:] = df.loc[idx,:]
                 else:
                     df.loc[idx+1,:] = df.loc[idx,:]
-        print(df.index.name)
         #
         #после копирования можно удалить
         df = df.drop(columns=['Источник'])
@@ -95,7 +94,10 @@ def process_csv():
             if (idx > 0) and (idx < len(df)-1):
                 df.loc[idx-1,:] = df.loc[idx,:]
         df = df.drop(columns='diff')
-        df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%-d %H:%M', errors='coerce')
+        #df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%-d %H:%M', errors='coerce')
+        # Преобразование обратно
+        df['datetime'] = df['datetime'].dt.strftime('%Y-%m-%d %H:%M')
+
         df = df.drop_duplicates(subset=['datetime'])
         messagebox.showinfo("Success", "File processed successfully!")
     else:
