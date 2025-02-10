@@ -5,18 +5,27 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 from datetime import datetime, timedelta
+#import chardet
+# Глобальная переменная для хранения данных
+df = None
+
 
 def load_csv():
     file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
     if file_path:
         entry_path.delete(0, tk.END)
         entry_path.insert(0, file_path)
+        #определить кодировку
+        #with open(file_path, 'rb') as f:
+        #    result = chardet.detect(f.read(10000))
+        #    print(result)
         global df
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(file_path, encoding='utf-8')
         messagebox.showinfo("Success", "File loaded successfully!")
 
 def process_csv():
-    if 'df' in globals():
+    global df  # Объявляем, что используем глобальную переменную df
+    if df is not None:
         #порог гипогликемии
         min_the_target_range = 4
         #сразу заменяем записанный вручную на автоматически измеренный (когда записывают вручную столбец bg остается пустым)
@@ -45,14 +54,21 @@ def process_csv():
         df = df.drop(columns=['dream_start'])
         df = df.drop(columns=['лекарство'])
         #посчитаем интервалы между записями
+            # Преобразуем первый столбец в формат datetime
+        df['datetime'] = pd.to_datetime(df['datetime'])
         df['diff'] = df.iloc[:, 0].diff().dt.total_seconds().fillna(0).astype(int)
         
         condition = df['Источник'] == 'Протокол'        
         # Индексы строк, удовлетворяющих условию
         indices = df[condition].index
         for idx in indices:
-            if (idx > 0) and (idx < df(len)-1):
-                
+            if (idx > 0) and (idx < len(df) - 1):
+                if (df['diff'].loc[idx])<160:
+                    df.loc[idx-1,:] = df.loc[idx,:]
+                else:
+                    df.loc[idx+1,:] = df.loc[idx,:]
+        print(df.index.name)
+        #
         #после копирования можно удалить
         df = df.drop(columns=['Источник'])
         
@@ -76,7 +92,11 @@ def process_csv():
         indices = df[condition].index
         # Копирование значений, которые будут удалены
         for idx in indices:
-            df.iloc[idx+1] = df.iloc[idx]
+            if (idx > 0) and (idx < len(df)-1):
+                df.loc[idx-1,:] = df.loc[idx,:]
+        df = df.drop(columns='diff')
+        df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%-d %H:%M', errors='coerce')
+        df = df.drop_duplicates(subset=['datetime'])
         messagebox.showinfo("Success", "File processed successfully!")
     else:
         messagebox.showerror("Error", "No file loaded!")
