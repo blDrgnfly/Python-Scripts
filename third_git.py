@@ -22,8 +22,7 @@ def load_csv():
 
 def process_csv():
     global df  # Объявляем, что используем глобальную переменную df
-    cols = ['id',
-            'p_num',
+    cols = ['p_num',
             'time',
             'bg-5:55',
             'bg-5:50',
@@ -600,36 +599,43 @@ def process_csv():
             if (idx > 0) and (idx < len(df)-1):
                 df.loc[idx-1,:] = df.loc[idx,:]
         df = df.drop(columns='diff')
-        #df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%d %H:%M', errors='coerce') #игнорировать ошибки - на NaT
+        #errors='coerce') #игнорировать ошибки - на NaT
         # Преобразование обратно в str чтобы удалить дубликаты
         df['datetime'] = df['datetime'].dt.strftime('%Y-%m-%d %H:%M')
         df = df.drop_duplicates(subset=['datetime'])
         
         # Преобразование в datetime
         df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%d %H:%M')   
-             
+    
+        # Сброс индексов, чтобы они были последовательными
+        df = df.reset_index(drop=True)
+        
         # Генерация списка значений от 5:55 до 0:00 - 72 нужных нам столбца
         start_time = timedelta(hours=5, minutes=55)
         name_cols_dt = [start_time - timedelta(minutes=5 * i) for i in range(72)]  # 72 столбца
+        name_cols_dt=name_cols_dt[::-1]
         # Переводим в строки и сразу обрезаем до первых 4 символов
         name_cols = [str(td)[:4] for td in name_cols_dt]
-        #name_cols = name_cols[::-1]
         first_row = df['datetime'].iloc[0::3]
+        first_row = first_row.reset_index(drop=True)
+        
         #создаём массив-кондуктор, для сравнения
         df_conductor = pd.DataFrame(columns=name_cols)
         #заполняем первый столбец массива
         df_conductor['0:00'] = first_row
+        #заполняем последний столбец массива
+        df_conductor['bg+1:00'] = first_row+timedelta(hours=1)
+        
         #последний столбец массива
         # Сброс индексов, чтобы они были последовательными
         df_conductor = df_conductor.reset_index(drop=True)
-        bgafter1hours = df_conductor['0:00']+timedelta(hours=1)
+        #
         #заполняем все остальные элементы массива
         for i in range(len(df_conductor)-1):
-            for j in range(72):
-                df_conductor.iloc[i,j] = (df_conductor.at[i, '0:00']-name_cols_dt[j]).strftime('%Y-%m-%d %H:%M:%S')
+            for j in range(1,72):
+                df_conductor.iloc[i,j] = (df_conductor['0:00'].iloc[i]-name_cols_dt[j]).strftime('%Y-%m-%d %H:%M:%S')
                 
-        #заполняем последний столбец массива
-        df_conductor['bg+1:00'] = bgafter1hours
+        #
         # Преобразование обратно в строку чтобы корректно сравнивать
         df_conductor['0:00'] = df_conductor['0:00'].dt.strftime('%Y-%m-%d %H:%M:%S')
         df_conductor['bg+1:00'] = df_conductor['bg+1:00'].dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -637,10 +643,11 @@ def process_csv():
         #создаем остальные массивы, которые будет нужно заполнить если сравнение пройдет успешно
         name_cols.append('bg+1:00')
         df_bg = pd.DataFrame(np.nan, index = range(0, first_row.shape[0], 1), columns=name_cols)
+        #
         df_carbohydrates = pd.DataFrame(np.nan, index = range(0, first_row.shape[0], 1), columns=name_cols)
         df_insulin = pd.DataFrame(np.nan, index = range(0, first_row.shape[0], 1), columns=name_cols)
         df_acv = pd.DataFrame(np.nan, index = range(0, first_row.shape[0], 1), columns=name_cols)
-
+        #
         # Создаем словарь для быстрого поиска
         datetime_to_values = df.set_index('datetime')[['bg', 'carbohydrates', 'insulin', 'acv']].to_dict(orient='index')
         # Итерируем по индексам и столбцам df_conductor
@@ -648,28 +655,33 @@ def process_csv():
             for  j in df_conductor.columns:
                 what_find = df_conductor.at[i, j]
                 if what_find in datetime_to_values:
-                    df_bg.at[i,j] = datetime_to_values[what_find]['bg']
+                    df_bg.at[i,j] = str(datetime_to_values[what_find]['bg'])+'*'+str(what_find)
                     df_carbohydrates.at[i,j] = datetime_to_values[what_find]['carbohydrates']
                     df_insulin.at[i,j] = datetime_to_values[what_find]['insulin']
                     df_acv.at[i,j] = datetime_to_values[what_find]['acv']
                     
-        cols_bg = cols[2:74]
-        
+        cols_bg = cols[2:74]   
+        cols_bg = cols_bg[::-1]     
         cols_bg.append('bg+1:00')
 
         cols_insulin = cols[74:146]
+        cols_insulin = cols_insulin[::-1]
         cols_insulin.append('bg+1:00')
 
         cols_carbohydrates = cols[146:218]
+        cols_carbohydrates = cols_carbohydrates[::-1]
         cols_carbohydrates.append('bg+1:00')
 
         cols_acv = cols[434:506]
-        #cols_acv = cols_acv.tolist()
+        cols_acv = cols_acv[::-1]
         cols_acv.append('bg+1:00')
 
         cols_cals = cols[362:434]
-        #cols_cals = cols_cals.tolist()
+        cols_cals = cols_cals[::-1]
         cols_cals.append('bg+1:00')
+        #неправильно перевернуты
+        #print('df_bg:', df_bg.columns)
+        #print('cols_bg:', cols_bg)
         # переименовываем столбцы чтобы были как в колаб
         df_bg.columns = cols_bg
         #  переименовываем столбцы чтобы были как в колаб
@@ -699,7 +711,6 @@ def process_csv():
         df_kaggle = df_kaggle.iloc[:-4]
         df_kaggle = df_kaggle.replace(0, np.nan).replace(0.0, np.nan)
         df_kaggle = df_kaggle.dropna(subset=['bg+1:00'])
-        
         del df
         df = df_kaggle
         messagebox.showinfo("Success", "Файл успешно обработан!!")
