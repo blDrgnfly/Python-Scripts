@@ -618,7 +618,7 @@ def process_csv():
         name_cols = [str(td)[:4] for td in name_cols_dt]
         first_row = df['datetime'].iloc[0::3]
         first_row = first_row.reset_index(drop=True)
-        
+        #
         #создаём массив-кондуктор, для сравнения
         df_conductor = pd.DataFrame(columns=name_cols)
         #заполняем первый столбец массива
@@ -655,7 +655,7 @@ def process_csv():
             for  j in df_conductor.columns:
                 what_find = df_conductor.at[i, j]
                 if what_find in datetime_to_values:
-                    df_bg.at[i,j] = str(datetime_to_values[what_find]['bg'])+'*'+str(what_find)
+                    df_bg.at[i,j] = datetime_to_values[what_find]['bg']
                     df_carbohydrates.at[i,j] = datetime_to_values[what_find]['carbohydrates']
                     df_insulin.at[i,j] = datetime_to_values[what_find]['insulin']
                     df_acv.at[i,j] = datetime_to_values[what_find]['acv']
@@ -663,8 +663,10 @@ def process_csv():
         cols_bg = cols[2:74]   
         cols_bg = cols_bg[::-1]     
         cols_bg.append('bg+1:00')
-
+        
         cols_insulin = cols[74:146]
+        
+        
         cols_insulin = cols_insulin[::-1]
         cols_insulin.append('bg+1:00')
 
@@ -680,8 +682,7 @@ def process_csv():
         cols_cals = cols_cals[::-1]
         cols_cals.append('bg+1:00')
         #неправильно перевернуты
-        #print('df_bg:', df_bg.columns)
-        #print('cols_bg:', cols_bg)
+        
         # переименовываем столбцы чтобы были как в колаб
         df_bg.columns = cols_bg
         #  переименовываем столбцы чтобы были как в колаб
@@ -701,7 +702,7 @@ def process_csv():
         
         df_kaggle = pd.DataFrame(np.nan, index=first_row.index, columns=cols)
         df_kaggle['time'] = first_row
-        df_kaggle['p_num'] = 'p_15'
+        df_kaggle['p_num'] = 'p_10'
         df_kaggle.update(df_bg)
         df_kaggle.update(df_acv)
         df_kaggle.update(df_cals)
